@@ -10,7 +10,7 @@
 
 const BOT_TOKEN    = process.env.8987560398:AAGQ-3lfsvDiloHwbiC_c4bqwIhDNpnH0HQ;
 const SUPABASE_URL = process.env.https://pedchyiwcnlwzzgkmxxj.supabase.co;
-const ANON_KEY     = process.env.SUPABASE_ANON_KEY;
+const ANON_KEY     = process.env.sb_publishable_03ShnchlS8pIOfvC4tfKPA_IHFHvUzs;
 
 const tg = async (method, body) => {
   const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
