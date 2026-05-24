@@ -8,7 +8,7 @@
 // Бот НЕ хранит и НЕ проверяет пароли сам — этим занимается Supabase Auth.
 // ============================================================
 
-const BOT_TOKEN    = process.env.BOT_TOKEN;
+const BOT_TOKEN    = process.env.8987560398:AAGQ-3lfsvDiloHwbiC_c4bqwIhDNpnH0HQ;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY     = process.env.SUPABASE_ANON_KEY;
 
