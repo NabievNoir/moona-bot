@@ -1,0 +1,73 @@
+// ============================================================
+// MOONA ERP — /api/admin-delete-user
+// Удаляет сотрудника из Supabase Auth и из таблицы users.
+// Только админ. Только сервер (service_role).
+// ============================================================
+// ENV: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
+// ============================================================
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANON_KEY     = process.env.SUPABASE_ANON_KEY;
+
+async function authAdmin(method, path) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
+    method,
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+  });
+  return { ok: r.ok, status: r.status };
+}
+async function dbGet(filter) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/users?${filter}`, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  });
+  return r.json();
+}
+async function dbDelete(id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  });
+  return r.ok;
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
+  if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) return res.status(500).json({ error: 'env_missing' });
+
+  try {
+    const { targetUserId } = req.body || {};
+
+    // 1) Проверяем, что зовёт админ
+    const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+    if (!token) return res.status(401).json({ error: 'no_token' });
+    const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!who.ok) return res.status(401).json({ error: 'bad_token' });
+    const caller = await who.json();
+    const callerRows = await dbGet(`auth_user_id=eq.${caller.id}&select=id,role`);
+    const callerRow = Array.isArray(callerRows) && callerRows[0];
+    if (!callerRow || callerRow.role !== 'admin') return res.status(403).json({ error: 'not_admin' });
+
+    // 2) Нельзя удалить самого себя
+    if (!targetUserId) return res.status(400).json({ error: 'bad_input' });
+    if (String(callerRow.id) === String(targetUserId)) return res.status(400).json({ error: 'cannot_delete_self' });
+
+    // 3) Находим целевого и удаляем из Auth, затем из users
+    const targetRows = await dbGet(`id=eq.${targetUserId}&select=id,auth_user_id`);
+    const target = Array.isArray(targetRows) && targetRows[0];
+    if (!target) return res.status(404).json({ error: 'target_not_found' });
+
+    if (target.auth_user_id) {
+      await authAdmin('DELETE', `users/${target.auth_user_id}`); // гасит и сессии
+    }
+    const okDel = await dbDelete(target.id);
+    if (!okDel) return res.status(500).json({ error: 'db_delete_failed' });
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('admin-delete-user error:', e);
+    return res.status(500).json({ error: 'server', detail: String(e) });
+  }
+}
