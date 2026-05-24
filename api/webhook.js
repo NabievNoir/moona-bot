@@ -86,21 +86,34 @@ async function handleMessage(msg) {
     return;
   }
 
-  // Staff login
+  // Staff login - step 1: enter login
   if (session.step === 'staff_code') {
-    const users = await db.get('users', `login=eq.${text}`);
+    setSession(chatId, {step: 'staff_password', staff_login: text});
+    await tg('sendMessage', {chat_id: chatId, text: '🔒 Введите ваш пароль:'});
+    return;
+  }
+
+  // Staff login - step 2: enter password
+  if (session.step === 'staff_password') {
+    const users = await db.get('users', `login=eq.${session.staff_login}`);
     if (Array.isArray(users) && users.length > 0) {
       const user = users[0];
-      await db.patch('users', user.id, {telegram_id: String(chatId)});
-      clearSession(chatId);
-      await tg('sendMessage', {
-        chat_id: chatId,
-        text: `✅ Готово! Вы подключены как *${user.name}* (${user.rl}).\n\nТеперь будете получать уведомления о заказах.`,
-        parse_mode: 'Markdown',
-        reply_markup: {keyboard: [[{text: '📊 Мои задачи'}]], resize_keyboard: true}
-      });
+      if (user.pass === text) {
+        await db.patch('users', user.id, {telegram_id: String(chatId)});
+        clearSession(chatId);
+        await tg('sendMessage', {
+          chat_id: chatId,
+          text: `✅ Готово! Вы подключены как *${user.name}* (${user.rl}).\n\nТеперь будете получать уведомления о заказах.`,
+          parse_mode: 'Markdown',
+          reply_markup: {keyboard: [[{text: '📊 Мои задачи'}]], resize_keyboard: true}
+        });
+      } else {
+        clearSession(chatId);
+        await tg('sendMessage', {chat_id: chatId, text: '❌ Неверный пароль. Попробуйте снова /start'});
+      }
     } else {
-      await tg('sendMessage', {chat_id: chatId, text: '❌ Логин не найден. Попробуйте ещё раз:'});
+      clearSession(chatId);
+      await tg('sendMessage', {chat_id: chatId, text: '❌ Логин не найден. Попробуйте снова /start'});
     }
     return;
   }
