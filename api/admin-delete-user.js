@@ -10,6 +10,13 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY     = process.env.SUPABASE_ANON_KEY;
 
+const ALLOW_ORIGIN = 'https://project-hzkau.vercel.app';
+function cors(res) {
+  res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 async function authAdmin(method, path) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
     method,
@@ -32,6 +39,8 @@ async function dbDelete(id) {
 }
 
 export default async function handler(req, res) {
+  cors(res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
   if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) return res.status(500).json({ error: 'env_missing' });
 
